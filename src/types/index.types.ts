@@ -32,8 +32,8 @@ export interface PreOrderItem {
   note?: string;
 }
 
-type OrderType = "table" | "delivery" | "pickup" | "counter";
-export type OrderStatus = 'cooking' | 'packing' | 'canceled';
+type OrderType = "table" | "delivery" | "pickup" | "counter" |"rappi";
+export type OrderStatus = 'cooking' | 'cooked'| 'packing' | 'canceled'|'inDelivery' |'completed';
 
 export interface CreateOrder {
   customerName: string;
@@ -66,6 +66,8 @@ export interface Order {
   orderType: OrderType
   printed: boolean
   items: OrderItem[];
+  orderStatus:OrderStatus,
+  isNew?:boolean
 }
 
 export interface UpdateOrder {

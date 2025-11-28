@@ -167,7 +167,6 @@ export default function ProtectedLayout() {
 
   return (
     <>
-      <Nav />
       <main className="bg-slate-50 min-h-screen pt-10">
         <Outlet />
       </main>
