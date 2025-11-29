@@ -6,7 +6,6 @@ import { useOrderStore } from "../stores/orderStore";
 import { useOrders } from "../hooks/useOrders";
 import type { Order } from "../types/index.types";
 import { useAuth } from "../hooks/useAuth";
-import Nav from "../components/Nav/Nav";
 import Loader from "../components/Loader/Loader";
 import ErrorFetchingData from "../components/Error/ErrorFetchinData";
 
@@ -15,7 +14,7 @@ import ErrorFetchingData from "../components/Error/ErrorFetchinData";
 export default function ProtectedLayout() {
   const { setOrder, removeOrder, updateOrder } = useOrderStore();
   const {
-    orders,
+
     isLoading: isLoadingOrders,
     isError: isOrdersError,
     refetch: refetchOrders,

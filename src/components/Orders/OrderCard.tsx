@@ -1,8 +1,9 @@
+import { useEffect, useRef } from "react";
 import Swal from "sweetalert2";
 import { useNow } from "../../hooks/useNow";
 import type { Order } from "../../types/index.types";
-import { formatElapsed } from "../../utils";
 import { useUpdateOrderStatus } from "../../hooks/useUpdateOrder";
+import { formatElapsed, normalizeColombianDate } from "../../utils";
 import "../../index.css";
 
 interface OrderCardProps {
@@ -11,17 +12,46 @@ interface OrderCardProps {
 
 export default function OrderCard({ order }: OrderCardProps) {
   const now = useNow();
-  const createdAt = new Date(order.createdAt).getTime();
-  const elapsed = formatElapsed(now - createdAt);
+
+  // Normalizar fecha Colombia
+  const createdAtDate = normalizeColombianDate(order.createdAt);
+  const createdAt = createdAtDate ? createdAtDate.getTime() : null;
+
+  // Tiempo transcurrido
+  const elapsed = createdAt ? formatElapsed(now - createdAt) : "--";
 
   const { mutate, isPending } = useUpdateOrderStatus();
 
+  // Orden nueva (primeros 10 segundos)
+  const isNew = createdAt !== null && now - createdAt < 10 * 1000;
+
+  // Orden tardada (>12 min cocinando)
   const isDelayed =
-    order.orderStatus === "cooking" && now - createdAt > 12 * 60 * 1000;
+    createdAt !== null &&
+    order.orderStatus === "cooking" &&
+    now - createdAt > 12 * 60 * 1000;
 
+  // --------------------------
+  // 🔊 Sonido cuando llega orden nueva
+  // --------------------------
+  const newOrderSound = useRef<HTMLAudioElement | null>(
+    new Audio(
+      "https://prontopolloportal.com/wp-content/uploads/2024/02/newPedido_join-1.mp3"
+    )
+  );
 
-  const isNew = now - createdAt < 10 * 1000;
+  const hasPlayedSound = useRef(false);
 
+  useEffect(() => {
+    if (isNew && !hasPlayedSound.current) {
+      newOrderSound.current?.play().catch(() => {});
+      hasPlayedSound.current = true;
+    }
+  }, [isNew]);
+
+  // --------------------------
+  // 🔧 Función para marcar como preparada
+  // --------------------------
   const OnPrepared = async (id: number) => {
     const result = await Swal.fire({
       title: `¿Marcar orden ${order.dailyOrderNumber} como preparada?`,
@@ -57,6 +87,9 @@ export default function OrderCard({ order }: OrderCardProps) {
     }
   };
 
+  // --------------------------
+  // 🎨 Render
+  // --------------------------
   return (
     <div
       onClick={() => !isPending && OnPrepared(order.orderId)}

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import OrderCard from "../components/Orders/OrderCard";
 import { useOrderStore } from "../stores/orderStore";
-import type { Order } from "../types/index.types";
+
 
 export default function KitchenView() {
   const { orders } = useOrderStore();

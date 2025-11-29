@@ -1,6 +1,6 @@
 import { isAxiosError } from "axios";
 import api from "../lib/api";
-import type { CreateOrder, Order, PreOrderItem, UpdateOrder } from "../types/index.types";
+import type {Order,  UpdateOrder } from "../types/index.types";
 
 
 
