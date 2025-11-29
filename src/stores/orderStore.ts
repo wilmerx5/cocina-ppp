@@ -1,34 +1,26 @@
-// store/orderStore.ts
 import { create } from "zustand";
 import type { Order } from "../types/index.types";
 
 interface OrderStore {
   orders: Order[];
+  setOrder: (order: Order) => void;
+  setOrders: (orders: Order[]) => void;
+  removeOrder: (dailyOrderNumber: number) => void;
+  updateOrder: (order: Order) => void;
 
-  // 👉 NUEVOS CAMPOS
+  // Multi select
   multiSelectMode: boolean;
   selectedOrders: number[];
 
-  // 👉 MÉTODOS EXISTENTES (idénticos)
-  setOrder: (order: Order) => void;
-  setOrders: (orders: Order[]) => void;
-  removeOrder: (orderId: Order["orderId"]) => void;
-  updateOrder: (order: Order) => void;
-
-  // 👉 NUEVOS MÉTODOS PARA MULTISELECT
   enterMultiSelect: () => void;
   exitMultiSelect: () => void;
-  toggleSelectOrder: (orderId: number) => void;
+  toggleSelectOrder: (id: number) => void;
+  clearSelection: () => void;
 }
 
 export const useOrderStore = create<OrderStore>((set) => ({
   orders: [],
 
-  // ⭐ NUEVAS PROPIEDADES
-  multiSelectMode: false,
-  selectedOrders: [],
-
-  // ⭐ FUNCIONES EXISTENTES (NO SE TOCAN)
   setOrder: (order) =>
     set((state) => ({
       orders: [order, ...state.orders],
@@ -48,31 +40,23 @@ export const useOrderStore = create<OrderStore>((set) => ({
       ),
     })),
 
-  setOrders: (orders) =>
-    set(() => ({
-      orders,
+  setOrders: (orders) => set({ orders }),
+
+  // -------------------------
+  // Multi select
+  // -------------------------
+  multiSelectMode: false,
+  selectedOrders: [],
+
+  enterMultiSelect: () => set({ multiSelectMode: true }),
+  exitMultiSelect: () => set({ multiSelectMode: false, selectedOrders: [] }),
+
+  toggleSelectOrder: (id) =>
+    set((state) => ({
+      selectedOrders: state.selectedOrders.includes(id)
+        ? state.selectedOrders.filter((x) => x !== id)
+        : [...state.selectedOrders, id],
     })),
 
-  // ⭐ NUEVAS FUNCIONES PARA MULTISELECT
-  enterMultiSelect: () =>
-    set(() => ({
-      multiSelectMode: true,
-      selectedOrders: [],
-    })),
-
-  exitMultiSelect: () =>
-    set(() => ({
-      multiSelectMode: false,
-      selectedOrders: [],
-    })),
-
-  toggleSelectOrder: (orderId) =>
-    set((state) => {
-      const exists = state.selectedOrders.includes(orderId);
-      return {
-        selectedOrders: exists
-          ? state.selectedOrders.filter((id) => id !== orderId)
-          : [...state.selectedOrders, orderId],
-      };
-    }),
+  clearSelection: () => set({ selectedOrders: [] }),
 }));

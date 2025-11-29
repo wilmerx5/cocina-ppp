@@ -1,80 +1,155 @@
 import { useState } from "react";
 import OrderCard from "../components/Orders/OrderCard";
 import { useOrderStore } from "../stores/orderStore";
-
+import { useUpdateOrderStatus } from "../hooks/useUpdateOrder";
+import { useNow } from "../hooks/useNow";
+import Swal from "sweetalert2";
 
 export default function KitchenView() {
-  const { orders } = useOrderStore();
+  const {
+    orders,
+    multiSelectMode,
+    selectedOrders,
+    exitMultiSelect,
+    enterMultiSelect,
+    clearSelection,
+  } = useOrderStore();
 
-  // 👇 estado de filtro
-  const [filter, setFilter] = useState<"por-preparar" | "preparadas">("por-preparar");
+  const { mutate } = useUpdateOrderStatus();
+  const now = useNow();
 
-  // 👇 aplica el filtro según orderStatus
-  const filteredOrders = orders.filter((o) => {
-    if (filter === "por-preparar") {
-      return o.orderStatus === "cooking";
-    } else {
-      return o.orderStatus !== "cooking";
-    }
-  });
+  // Filtro estado
+  const [filter, setFilter] = useState<"por-preparar" | "preparadas">(
+    "por-preparar"
+  );
 
-  const normalOrders = filteredOrders.filter((o) => o.orderType !== "table");
-  const tableOrders = filteredOrders.filter((o) => o.orderType === "table");
+  // Filtrar órdenes
+  const filteredOrders = orders.filter((o) =>
+    filter === "por-preparar"
+      ? o.orderStatus === "cooking"
+      : o.orderStatus !== "cooking"
+  );
+
+  const normalOrders = filteredOrders.filter(
+    (o) => o.orderType !== "table"
+  );
+  const tableOrders = filteredOrders.filter(
+    (o) => o.orderType === "table"
+  );
+
+  // -----------------------------
+  // 🟩 Completar varias órdenes
+  // -----------------------------
+  const completeSelected = async () => {
+    const result = await Swal.fire({
+      title: `¿Completar ${selectedOrders.length} órdenes?`,
+      text: "Se marcarán todas como preparadas.",
+      icon: "question",
+      showCancelButton: true,
+      confirmButtonText: "Sí, continuar",
+      cancelButtonText: "Cancelar",
+      confirmButtonColor: "#22c55e",
+      cancelButtonColor: "#6b7280",
+      reverseButtons: true,
+    });
+
+    if (!result.isConfirmed) return;
+
+    selectedOrders.forEach((id) => mutate(id));
+    exitMultiSelect();
+  };
 
   return (
     <div className="px-4 py-4">
-      <div className="flex gap-3 mb-4">
+      {/* Filtros */}
+      <div className="flex gap-3 mb-4 items-center">
         <button
           onClick={() => setFilter("por-preparar")}
-          className={`px-4 py-1 text-sm rounded-md font-medium 
-            ${
-              filter === "por-preparar"
-                ? "bg-sky-600 text-white"
-                : "bg-gray-200 text-gray-700"
-            }`}
+          className={`px-4 py-1 text-sm rounded-md font-medium ${
+            filter === "por-preparar"
+              ? "bg-sky-600 text-white"
+              : "bg-gray-200 text-gray-700"
+          }`}
         >
           Por preparar
         </button>
 
         <button
           onClick={() => setFilter("preparadas")}
-          className={`px-4 py-1 text-sm rounded-md font-medium 
-            ${
-              filter === "preparadas"
-                ? "bg-green-600 text-white"
-                : "bg-gray-200 text-gray-700"
-            }`}
+          className={`px-4 py-1 text-sm rounded-md font-medium ${
+            filter === "preparadas"
+              ? "bg-green-600 text-white"
+              : "bg-gray-200 text-gray-700"
+          }`}
         >
           Preparadas
         </button>
+
+        {/* 🔘 Botón de selección múltiple */}
+        <button
+          onClick={() => {
+            if (multiSelectMode) {
+              exitMultiSelect(); // cancelar modo
+            } else {
+              enterMultiSelect(); // activar modo
+            }
+            clearSelection();
+          }}
+          className={`ml-auto px-4 py-1 text-sm rounded-md font-medium ${
+            multiSelectMode
+              ? "bg-red-600 text-white"
+              : "bg-amber-500 text-white"
+          }`}
+        >
+          {multiSelectMode ? "Cancelar selección" : "Seleccionar múltiples"}
+        </button>
       </div>
 
-      {/* 🧩 Grilla 5 columnas (3 normales – 2 mesas) */}
+      {/* Grid 5 columnas */}
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
 
-        {/* Columnas 1–3 → delivery/pickup/counter */}
+        {/* Normales → columnas 1–3 */}
         <div className="col-span-3 grid grid-cols-1 md:grid-cols-3 gap-3">
           {normalOrders.length > 0 ? (
             normalOrders.map((order) => (
-              <OrderCard key={order.orderId} order={order} />
+              <OrderCard key={order.orderId} order={order} now={now} />
             ))
           ) : (
-            <p className="text-gray-500 text-sm col-span-full">No hay órdenes</p>
+            <p className="text-gray-500 text-sm col-span-full">
+              No hay órdenes
+            </p>
           )}
         </div>
 
-        {/* Columnas 4–5 → solo mesas */}
+        {/* Mesas → columnas 4–5 */}
         <div className="col-span-2 grid grid-cols-1 md:grid-cols-2 gap-3">
           {tableOrders.length > 0 ? (
             tableOrders.map((order) => (
-              <OrderCard key={order.orderId} order={order} />
+              <OrderCard key={order.orderId} order={order} now={now} />
             ))
           ) : (
-            <p className="text-gray-500 text-sm col-span-full">No hay órdenes de mesa</p>
+            <p className="text-gray-500 text-sm col-span-full">
+              No hay órdenes de mesa
+            </p>
           )}
         </div>
-
       </div>
+
+      {/* Barra inferior para completar varias órdenes */}
+      {multiSelectMode && selectedOrders.length > 0 && (
+        <div className="fixed bottom-0 left-0 right-0 bg-white shadow-lg border-t border-gray-200 p-4 flex justify-between items-center">
+          <p className="text-gray-700 font-medium">
+            {selectedOrders.length} órdenes seleccionadas
+          </p>
+
+          <button
+            onClick={completeSelected}
+            className="bg-green-600 text-white px-6 py-2 rounded-lg font-semibold hover:bg-green-700 transition"
+          >
+            Completar seleccionadas
+          </button>
+        </div>
+      )}
     </div>
   );
 }

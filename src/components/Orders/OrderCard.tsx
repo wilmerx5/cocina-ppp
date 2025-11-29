@@ -1,45 +1,43 @@
 import { useEffect, useRef } from "react";
 import Swal from "sweetalert2";
-import { useNow } from "../../hooks/useNow";
 import type { Order } from "../../types/index.types";
 import { useUpdateOrderStatus } from "../../hooks/useUpdateOrder";
 import { formatElapsed, normalizeColombianDate } from "../../utils";
+import { useOrderStore } from "../../stores/orderStore";
 import "../../index.css";
 
 interface OrderCardProps {
   order: Order;
+  now: number;
 }
 
-export default function OrderCard({ order }: OrderCardProps) {
-  const now = useNow();
+export default function OrderCard({ order, now }: OrderCardProps) {
+  const {
+    multiSelectMode,
+    selectedOrders,
+    enterMultiSelect,
+    toggleSelectOrder,
+  } = useOrderStore();
 
-  // Normalizar fecha Colombia
+  const isSelected = selectedOrders.includes(order.orderId);
+
+  // ↓ Fecha normalizada (UTC → COL)
   const createdAtDate = normalizeColombianDate(order.createdAt);
-  const createdAt = createdAtDate ? createdAtDate.getTime() : null;
-
-  // Tiempo transcurrido
+  const createdAt = createdAtDate?.getTime() ?? null;
   const elapsed = createdAt ? formatElapsed(now - createdAt) : "--";
 
   const { mutate, isPending } = useUpdateOrderStatus();
 
-  // Orden nueva (primeros 10 segundos)
   const isNew = createdAt !== null && now - createdAt < 10 * 1000;
-
-  // Orden tardada (>12 min cocinando)
   const isDelayed =
     createdAt !== null &&
     order.orderStatus === "cooking" &&
     now - createdAt > 12 * 60 * 1000;
 
-  // --------------------------
-  // 🔊 Sonido cuando llega orden nueva
-  // --------------------------
+  // 🔊 Sonido nueva orden
   const newOrderSound = useRef<HTMLAudioElement | null>(
-    new Audio(
-      "https://prontopolloportal.com/wp-content/uploads/2024/02/newPedido_join-1.mp3"
-    )
+    new Audio("https://prontopolloportal.com/wp-content/uploads/2024/02/newPedido_join-1.mp3")
   );
-
   const hasPlayedSound = useRef(false);
 
   useEffect(() => {
@@ -49,9 +47,36 @@ export default function OrderCard({ order }: OrderCardProps) {
     }
   }, [isNew]);
 
-  // --------------------------
-  // 🔧 Función para marcar como preparada
-  // --------------------------
+  // Long Press (2 segundos)
+  const pressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handlePressStart = () => {
+    if (multiSelectMode) return;
+
+    pressTimer.current = setTimeout(() => {
+      enterMultiSelect();
+      toggleSelectOrder(order.orderId);
+    }, 2000);
+  };
+
+  const handlePressEnd = () => {
+    if (pressTimer.current) clearTimeout(pressTimer.current);
+    pressTimer.current = null;
+  };
+
+  // Click normal
+  const handleClick = () => {
+    if (isPending) return;
+
+    if (multiSelectMode) {
+      toggleSelectOrder(order.orderId);
+      return;
+    }
+
+    OnPrepared(order.orderId);
+  };
+
+  // Confirmación individual
   const OnPrepared = async (id: number) => {
     const result = await Swal.fire({
       title: `¿Marcar orden ${order.dailyOrderNumber} como preparada?`,
@@ -65,40 +90,22 @@ export default function OrderCard({ order }: OrderCardProps) {
       reverseButtons: true,
     });
 
-    if (result.isConfirmed) {
-      mutate(id, {
-        onSuccess: () => {
-          Swal.fire({
-            title: "Actualizada",
-            text: "La orden ha sido marcada como preparada.",
-            icon: "success",
-            timer: 1500,
-            showConfirmButton: false,
-          });
-        },
-        onError: () => {
-          Swal.fire({
-            title: "Error",
-            text: "Hubo un problema al actualizar la orden.",
-            icon: "error",
-          });
-        },
-      });
-    }
+    if (result.isConfirmed) mutate(id);
   };
 
-  // --------------------------
-  // 🎨 Render
-  // --------------------------
   return (
     <div
-      onClick={() => !isPending && OnPrepared(order.orderId)}
+      onMouseDown={handlePressStart}
+      onMouseUp={handlePressEnd}
+      onMouseLeave={handlePressEnd}
+      onClick={handleClick}
       className={`
-        relative bg-white rounded-lg border border-gray-200 hover:shadow transition cursor-pointer
+        relative bg-white rounded-lg border transition cursor-pointer hover:shadow
         ${isNew ? "animate-newOrder" : ""}
+        ${isSelected ? "ring-4 ring-blue-500 ring-offset-2" : "border-gray-200"}
       `}
     >
-      {/* Loader mientras se actualiza */}
+      {/* Loader */}
       {isPending && (
         <div className="absolute inset-0 bg-white/70 backdrop-blur-sm flex justify-center items-center z-20 rounded-lg">
           <div className="animate-spin w-6 h-6 border-2 border-gray-400 border-t-blue-600 rounded-full" />
@@ -119,7 +126,7 @@ export default function OrderCard({ order }: OrderCardProps) {
         }`}
       >
         #{order.dailyOrderNumber} • {order.orderType}{" "}
-        {order.orderType === "table" ? order.address : ""}
+        {order.orderType === "table" && order.address}
 
         <span className="float-right flex items-center gap-2 text-xs opacity-90">
           <span>⏱ {elapsed}</span>
@@ -135,31 +142,23 @@ export default function OrderCard({ order }: OrderCardProps) {
       <ul className="space-y-1 p-3">
         {order.items.map((item, i) => (
           <li key={i} className="text-sm">
-            <div className="flex justify-between items-center font-semibold text-gray-800">
-              <span className="flex items-center gap-2">
-                <span className="w-5 aspect-square flex justify-center items-center rounded-full bg-black text-white text-xs font-bold">
-                  {item.code}
-                </span>
-                × <span className="text-red-500">{item.quantity}</span>
+            <div className="flex items-center font-semibold text-gray-800 gap-2">
+              <span className="w-5 h-5 rounded-full bg-black text-white flex justify-center items-center text-xs">
+                {item.code}
               </span>
+              ×<span className="text-red-500">{item.quantity}</span>
             </div>
 
             {item.variants?.map((variant, idx) => (
-              <div key={idx} className="ml-2 mt-1 border-l border-gray-300 pl-2">
-                <ul className="text-[12px] space-y-0.5">
-                  {Object.entries(variant.attributes).map(([name, value]) => (
-                    <li key={name} className="flex gap-1">
-                      <span className="text-gray-500">{name}:</span>
-                      <span className="font-medium">{value}</span>
-                    </li>
-                  ))}
-                </ul>
-
-                {variant.note && (
-                  <p className="text-[12px] text-gray-600 italic mt-0.5">
-                    📝 {variant.note}
+              <div key={idx} className="ml-2 mt-1 border-l pl-2 text-[12px]">
+                {Object.entries(variant.attributes).map(([k, v]) => (
+                  <p key={k} className="flex gap-1">
+                    <span className="text-gray-500">{k}:</span>
+                    <span className="font-medium">{v}</span>
                   </p>
-                )}
+                ))}
+
+                {variant.note && <p className="italic text-gray-600">📝 {variant.note}</p>}
               </div>
             ))}
           </li>
