@@ -21,10 +21,24 @@ interface OrderStore {
 export const useOrderStore = create<OrderStore>((set) => ({
   orders: [],
 
-  setOrder: (order) =>
-    set((state) => ({
+setOrder: (order) =>
+  set((state) => {
+    const exists = state.orders.some(o => o.orderId === order.orderId);
+
+    if (exists) {
+      // Actualizar si ya existe (evita duplicados)
+      return {
+        orders: state.orders.map(o =>
+          o.orderId === order.orderId ? order : o
+        ),
+      };
+    }
+
+    // Agregar si NO existe
+    return {
       orders: [order, ...state.orders],
-    })),
+    };
+  }),
 
   updateOrder: (orderUpdated) =>
     set((state) => ({

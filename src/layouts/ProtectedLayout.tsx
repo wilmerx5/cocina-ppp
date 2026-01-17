@@ -2,83 +2,87 @@ import { useEffect, useRef } from "react";
 import { Outlet } from "react-router-dom";
 import { toast, ToastContainer } from "react-toastify";
 import { io, Socket } from "socket.io-client";
+
 import { useOrderStore } from "../stores/orderStore";
 import { useOrders } from "../hooks/useOrders";
-import type { Order } from "../types/index.types";
 import { useAuth } from "../hooks/useAuth";
+
 import Loader from "../components/Loader/Loader";
 import ErrorFetchingData from "../components/Error/ErrorFetchinData";
 
-
+import type { Order } from "../types/index.types";
 
 export default function ProtectedLayout() {
   const { setOrder, removeOrder, updateOrder } = useOrderStore();
-  const {
 
+  const {
     isLoading: isLoadingOrders,
     isError: isOrdersError,
     refetch: refetchOrders,
   } = useOrders();
 
+  const {
+    data: user,
+    isLoading: isLoadingAuth,
+    isError: isErrorAuth,
+  } = useAuth();
 
+  // ⭐ WebSocket único por todo el ciclo de vida del componente
   const socketRef = useRef<Socket | null>(null);
-  const reconnectAttempts = useRef(0);
 
-  const notify = useRef<HTMLAudioElement | null>(null);
-  const deletedOrderSound = useRef<HTMLAudioElement | null>(null);
-
-  // 🚀 Notificaciones sonoras
-  notify.current = new Audio(
-    "https://prontopolloportal.com/wp-content/uploads/2025/06/notificacion.mp3"
-  );
-  deletedOrderSound.current = new Audio(
-    "https://prontopolloportal.com/wp-content/uploads/2025/06/deleted_join.mp3"
+  // ⭐ Audios creados solo una vez
+  const notify = useRef(
+    new Audio(
+      "https://prontopolloportal.com/wp-content/uploads/2025/06/notificacion.mp3"
+    )
   );
 
-  // ✔ Conexión robusta estilo Slack/Discord
-  const connectSocket = () => {
-    if (socketRef.current && socketRef.current.connected) return;
+  const deletedOrderSound = useRef(
+    new Audio(
+      "https://prontopolloportal.com/wp-content/uploads/2025/06/deleted_join.mp3"
+    )
+  );
 
-    const socket = io(import.meta.env.VITE_API_URL);
+  // ---------------------------------------------------------
+  // 🔌 SOCKET.IO — SIN DUPLICADOS, effect corre SOLO UNA VEZ
+  // ---------------------------------------------------------
+  useEffect(() => {
+    if (socketRef.current) return; // Evita recrear socket si ya existe
+
+    const socket = io(import.meta.env.VITE_API_URL, {
+      reconnection: true,
+      reconnectionAttempts: Infinity,
+      reconnectionDelay: 1000,
+      reconnectionDelayMax: 5000,
+    });
 
     socketRef.current = socket;
 
+    // --- EVENTOS DEL SOCKET ---
     socket.on("connect", () => {
-      console.log("🔌 Socket conectado");
-      reconnectAttempts.current = 0;
+      console.log("🔌 Socket conectado:", socket.id);
       socket.emit("join_room", "kitchen");
 
-      // 🔄 Sync inmediato al reconectar
-      console.log("🔄 Refetch al reconectar");
+      console.log("🔄 Refetch al conectar/reconectar");
       refetchOrders();
     });
 
-    socket.on("disconnect", () => {
-      console.warn("⚠️ Socket desconectado");
-      tryReconnect();
-    });
+    socket.on("created_order", (order: Order) => {
+      console.log("🆕 Orden creada:", order);
 
-    // 🟢 Eventos
-    socket.on("created_order", (order) => {
-      console.log("🆕 Orden creada :", order);
       toast.success("Nueva orden");
-
-      if (notify.current) {
-        notify.current.currentTime = 0;
-        notify.current.play().catch(() => {});
-      }
+      notify.current.currentTime = 0;
+      notify.current.play().catch(() => {});
 
       setOrder(order);
     });
 
     socket.on("updated_order_items", (order: Order) => {
-      console.log("🛠️ Ítems actualizados:", order);
-      toast.success(`Orden ${order.dailyOrderNumber} actualizada`);
+      console.log("🛠️ Orden actualizada:", order);
 
-      if (notify.current) {
-        notify.current.currentTime = 0;
-        notify.current.play().catch(() => {});
-      }
+      toast.success(`Orden ${order.dailyOrderNumber} actualizada`);
+      notify.current.currentTime = 0;
+      notify.current.play().catch(() => {});
 
       updateOrder(order);
     });
@@ -86,57 +90,41 @@ export default function ProtectedLayout() {
     socket.on("deleted_order", (order: Order) => {
       console.log("🗑️ Orden eliminada:", order);
 
-      if (deletedOrderSound.current) {
-        deletedOrderSound.current.currentTime = 0;
-        deletedOrderSound.current.play().catch(() => {});
-      }
+      deletedOrderSound.current.currentTime = 0;
+      deletedOrderSound.current.play().catch(() => {});
 
       toast.error(`Eliminando orden ${order.dailyOrderNumber}`);
+
       setTimeout(() => removeOrder(order.dailyOrderNumber), 4000);
     });
-  };
 
-  // ♻ Backoff progresivo inteligente
-  const tryReconnect = () => {
-    reconnectAttempts.current++;
-    const delay = Math.min(1000 * reconnectAttempts.current, 10000);
+    socket.on("disconnect", () => {
+      console.warn("⚠️ Socket desconectado — esperando reconexión automática");
+    });
 
-    console.log(`⏳ Intentando reconectar en ${delay / 1000}s...`);
-
-    setTimeout(() => connectSocket(), delay);
-  };
-
-  // ❤️ Heartbeat para evitar suspensión del socket
-  useEffect(() => {
-    const interval = setInterval(() => {
-      if (socketRef.current?.connected) {
-        socketRef.current.emit("ping_check");
-      }
-    }, 20000);
-
-    return () => clearInterval(interval);
-  }, []);
-
-  // 🔥 Conexión inicial de socket
-  useEffect(() => {
-    connectSocket();
-
+    // --- CLEANUP ---
     return () => {
-      socketRef.current?.disconnect();
+      console.log("🛑 Cleanup socket");
+      socket.removeAllListeners();
+      socket.disconnect();
+      socketRef.current = null;
     };
-  }, []);
+  }, []); // 👈 SOLO UNA VEZ: NO DEPENDE DE refetchOrders NI Zustand
 
-  // 🔄 Refetch y reconexión cuando la pestaña vuelve a estar activa
+  // ---------------------------------------------------------
+  // 🔄 REFETCH AL VOLVER A LA PESTAÑA
+  // ---------------------------------------------------------
   useEffect(() => {
     const handleVisibility = () => {
       if (document.visibilityState === "visible") {
-        console.log("🔄 Tab activa → resync");
-
-        if (socketRef.current && !socketRef.current.connected) {
-          tryReconnect();
-        }
-
+        console.log("🔄 Tab activa → refetch");
         refetchOrders();
+
+        // Reconectar si el socket cayó
+        if (socketRef.current && !socketRef.current.connected) {
+          console.log("🔁 Reconectando socket...");
+          socketRef.current.connect();
+        }
       }
     };
 
@@ -145,10 +133,9 @@ export default function ProtectedLayout() {
       document.removeEventListener("visibilitychange", handleVisibility);
   }, [refetchOrders]);
 
-  // 🔒 Auth
-  const { data: user, isLoading: isLoadingAuth, isError: isErrorAuth } =
-    useAuth();
-
+  // ---------------------------------------------------------
+  // 🔒 AUTH
+  // ---------------------------------------------------------
   if (isLoadingAuth) return <div>Cargando...</div>;
 
   if (isErrorAuth || !user) {
@@ -156,19 +143,26 @@ export default function ProtectedLayout() {
     return null;
   }
 
-  if (!user?.roles.includes("kitchenUser")) {
+  if (!user.roles.includes("kitchenUser")) {
     window.location.replace(import.meta.env.VITE_AUTH_SERVICE_URL);
     return null;
   }
 
-  if ( isLoadingOrders) return <Loader />;
+  // ---------------------------------------------------------
+  // 🛠 LOADING & ERROR
+  // ---------------------------------------------------------
+  if (isLoadingOrders) return <Loader />;
   if (isOrdersError) return <ErrorFetchingData />;
 
+  // ---------------------------------------------------------
+  // 🎨 RENDER
+  // ---------------------------------------------------------
   return (
     <>
       <main className="bg-slate-50 min-h-screen pt-10">
         <Outlet />
       </main>
+
       <ToastContainer />
     </>
   );

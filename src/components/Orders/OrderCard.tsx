@@ -128,29 +128,45 @@ export default function OrderCard({ order, now }: OrderCardProps) {
         #{order.dailyOrderNumber} • {order.orderType}{" "}
         {order.orderType === "table" && order.address}
 
-        <span className="float-right flex items-center gap-2 text-xs opacity-90">
-          <span>⏱ {elapsed}</span>
-          {isDelayed && (
-            <span className="px-2 py-0.5 bg-red-600 text-white text-[10px] rounded-full animate-pulse">
-              Demora
+        {/* Timer siempre visible sobre un fondo */}
+        <span className="float-right">
+          <span className="inline-flex items-center gap-2 px-2 py-0.5 rounded-full bg-black/70 text-white text-xs sm:text-sm shadow-sm">
+            <span className="flex items-center gap-1">
+              <span>⏱</span>
+              <span>{elapsed}</span>
             </span>
-          )}
+            {isDelayed && (
+              <span className="px-2 py-[1px] bg-red-600 text-white text-[10px] rounded-full animate-pulse whitespace-nowrap">
+                Demora
+              </span>
+            )}
+          </span>
         </span>
       </div>
 
       {/* Items */}
       <ul className="space-y-1 p-3">
         {order.items.map((item, i) => (
-          <li key={i} className="text-sm">
+          <li key={i}>
             <div className="flex items-center font-semibold text-gray-800 gap-2">
-              <span className="w-5 h-5 rounded-full bg-black text-white flex justify-center items-center text-xs">
+              {/* Burbuja del código del producto */}
+              <span
+                className="
+                  h-7 aspect-square px-1 
+                  bg-black text-white 
+                  rounded-full flex justify-center items-center 
+                  text-sm font-bold 
+                  whitespace-nowrap
+                "
+              >
                 {item.code}
               </span>
-              ×<span className="text-red-500">{item.quantity}</span>
+
+              ×<span className="text-red-500 text-xl">{item.quantity}</span>
             </div>
 
             {item.variants?.map((variant, idx) => (
-              <div key={idx} className="ml-2 mt-1 border-l pl-2 text-[12px]">
+              <div key={idx} className="ml-2 mt-1 border-l pl-2 text-[15px]">
                 {Object.entries(variant.attributes).map(([k, v]) => (
                   <p key={k} className="flex gap-1">
                     <span className="text-gray-500">{k}:</span>
@@ -158,7 +174,9 @@ export default function OrderCard({ order, now }: OrderCardProps) {
                   </p>
                 ))}
 
-                {variant.note && <p className="italic text-gray-600">📝 {variant.note}</p>}
+                {variant.note && (
+                  <p className="italic text-gray-600">📝 {variant.note}</p>
+                )}
               </div>
             ))}
           </li>
