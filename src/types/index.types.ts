@@ -32,8 +32,11 @@ export interface PreOrderItem {
   note?: string;
 }
 
-type OrderType = "table" | "delivery" | "pickup" | "counter" |"rappi";
-export type OrderStatus = 'cooking' | 'cooked'| 'packing' | 'canceled'|'inDelivery' |'completed';
+type OrderType = "table" | "delivery" | "pickup" | "counter" | "rappi";
+export type OrderStatus = 'pending' | 'cooking' | 'cooked' | 'packing' | 'canceled' | 'inDelivery' | 'completed';
+
+/** online = cliente/ppp-front (pago); internal = panel */
+export type OrderSource = 'online' | 'internal';
 
 export interface CreateOrder {
   customerName: string;
@@ -63,11 +66,12 @@ export interface Order {
   phone: string;
   address: string;
   createdAt: string;
-  orderType: OrderType
-  printed: boolean
+  orderType: OrderType;
+  orderStatus: OrderStatus;
+  orderSource?: OrderSource;
+  printed: boolean;
   items: OrderItem[];
-  orderStatus:OrderStatus,
-  isNew?:boolean
+  isNew?: boolean;
 }
 
 export interface UpdateOrder {

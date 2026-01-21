@@ -16,24 +16,28 @@ export function formatElapsed(ms: number): string {
 
 
 
-export function parseUTCtoLocal(dateStr: string): Date {
-  const d = new Date(dateStr); // esto sigue siendo UTC
-  const offsetInMs = 5 * 60 * 60 * 1000; // Colombia UTC-5
-  return new Date(d.getTime() - offsetInMs);
+/**
+ * Parses a date string that is already in Bogotá timezone.
+ * The backend sends dates already converted to Bogotá timezone, so we just parse them directly.
+ * 
+ * @param dateStr - ISO string in Bogotá timezone from backend
+ * @returns Date object or null if invalid
+ */
+export function normalizeColombianDate(dateStr: string): Date | null {
+  if (!dateStr) return null;
+  
+  const date = new Date(dateStr);
+  
+  if (isNaN(date.getTime())) return null;
+  
+  // Backend already sends dates in Bogotá timezone, so we just parse directly
+  return date;
 }
 
-export function normalizeColombianDate(dateStr: string) {
-  let date = new Date(dateStr);
-
-  if (isNaN(date.getTime())) return null;
-
-  // Si termina en Z → es UTC → convertir a local (automático)
-  if (dateStr.endsWith("Z")) {
-    return new Date(
-      date.getTime() + (new Date().getTimezoneOffset() * 60 * 1000)
-    );
-  }
-
-  return date;
+/**
+ * @deprecated Use normalizeColombianDate instead. Dates from backend are already in Bogotá timezone.
+ */
+export function parseUTCtoLocal(dateStr: string): Date {
+  return normalizeColombianDate(dateStr) || new Date();
 }
 

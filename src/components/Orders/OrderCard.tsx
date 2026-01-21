@@ -21,17 +21,20 @@ export default function OrderCard({ order, now }: OrderCardProps) {
 
   const isSelected = selectedOrders.includes(order.orderId);
 
-  // ↓ Fecha normalizada (UTC → COL)
+  // Date from backend is already in Bogotá timezone, just parse it
   const createdAtDate = normalizeColombianDate(order.createdAt);
   const createdAt = createdAtDate?.getTime() ?? null;
   const elapsed = createdAt ? formatElapsed(now - createdAt) : "--";
 
   const { mutate, isPending } = useUpdateOrderStatus();
 
+  // Siguiente estado: pending → cooking, cooking → packing (al completar pasa a empacando)
+  const nextStatus = order.orderStatus === "pending" ? "cooking" : order.orderStatus === "cooking" ? "packing" : null;
+
   const isNew = createdAt !== null && now - createdAt < 10 * 1000;
   const isDelayed =
     createdAt !== null &&
-    order.orderStatus === "cooking" &&
+    (order.orderStatus === "cooking" || order.orderStatus === "pending") &&
     now - createdAt > 12 * 60 * 1000;
 
   // 🔊 Sonido nueva orden
@@ -73,14 +76,17 @@ export default function OrderCard({ order, now }: OrderCardProps) {
       return;
     }
 
-    OnPrepared(order.orderId);
+    if (!nextStatus) return;
+    OnPrepared(order.orderId, nextStatus);
   };
 
-  // Confirmación individual
-  const OnPrepared = async (id: number) => {
+  const OnPrepared = async (id: number, status: "cooking" | "packing") => {
+    const isStart = status === "cooking";
     const result = await Swal.fire({
-      title: `¿Marcar orden ${order.dailyOrderNumber} como preparada?`,
-      text: "Esta orden pasará al siguiente estado.",
+      title: isStart
+        ? `¿Iniciar preparación de orden #${order.dailyOrderNumber}?`
+        : `¿Completar orden #${order.dailyOrderNumber}?`,
+      text: isStart ? "La orden pasará a \"En preparación\"." : "La orden pasará a \"Empacando\".",
       icon: "question",
       showCancelButton: true,
       confirmButtonText: "Sí, continuar",
@@ -90,7 +96,7 @@ export default function OrderCard({ order, now }: OrderCardProps) {
       reverseButtons: true,
     });
 
-    if (result.isConfirmed) mutate(id);
+    if (result.isConfirmed) mutate({ orderId: id, orderStatus: status });
   };
 
   return (
@@ -116,7 +122,11 @@ export default function OrderCard({ order, now }: OrderCardProps) {
       <div
         className={`text-sm font-semibold px-2 py-1 rounded-md mb-2 w-full
         ${
-          order.orderType === "delivery"
+          order.orderSource === "online"
+            ? "bg-emerald-500 text-white" // Verde para órdenes de app (cliente)
+            : order.orderType === "rappi"
+            ? "bg-orange-500 text-white" // Naranja para Rappi
+            : order.orderType === "delivery"
             ? "bg-sky-600 text-white"
             : order.orderType === "table"
             ? "bg-purple-500 text-white"
@@ -125,6 +135,9 @@ export default function OrderCard({ order, now }: OrderCardProps) {
             : "bg-gray-400 text-white"
         }`}
       >
+        {order.orderSource === "online" && (
+          <span className="mr-1" title="Orden de app (cliente)">🌐</span>
+        )}
         #{order.dailyOrderNumber} • {order.orderType}{" "}
         {order.orderType === "table" && order.address}
 

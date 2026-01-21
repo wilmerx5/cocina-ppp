@@ -23,11 +23,11 @@ export default function KitchenView() {
     "por-preparar"
   );
 
-  // Filtrar órdenes
+  // Filtrar órdenes: por-preparar = pending | cooking; preparadas = cooked, packing, inDelivery, completed
   const filteredOrders = orders.filter((o) =>
     filter === "por-preparar"
-      ? o.orderStatus === "cooking"
-      : o.orderStatus !== "cooking"
+      ? o.orderStatus === "pending" || o.orderStatus === "cooking"
+      : ["cooked", "packing", "inDelivery", "completed"].includes(o.orderStatus)
   );
 
   const normalOrders = filteredOrders.filter(
@@ -43,7 +43,7 @@ export default function KitchenView() {
   const completeSelected = async () => {
     const result = await Swal.fire({
       title: `¿Completar ${selectedOrders.length} órdenes?`,
-      text: "Se marcarán todas como preparadas.",
+      text: "Se marcarán todas como \"Empacando\".",
       icon: "question",
       showCancelButton: true,
       confirmButtonText: "Sí, continuar",
@@ -55,7 +55,7 @@ export default function KitchenView() {
 
     if (!result.isConfirmed) return;
 
-    selectedOrders.forEach((id) => mutate(id));
+    selectedOrders.forEach((id) => mutate({ orderId: id, orderStatus: "packing" }));
     exitMultiSelect();
   };
 

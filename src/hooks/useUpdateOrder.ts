@@ -1,10 +1,9 @@
-// hooks/useUpdateOrderStatus.ts
 import { useMutation } from "@tanstack/react-query";
 import orderService from "../services/orderService";
-
+import type { OrderStatus } from "../types/index.types";
 
 export const useUpdateOrderStatus = () =>
   useMutation({
-    mutationFn: (orderId: number) =>
-      orderService.updateOrderGeneralInfo({orderId,info:{orderStatus:'cooked'}}),
+    mutationFn: ({ orderId, orderStatus }: { orderId: number; orderStatus: OrderStatus }) =>
+      orderService.updateOrderGeneralInfo({ orderId, info: { orderStatus } }),
   });
