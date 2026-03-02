@@ -23,11 +23,13 @@ export default function KitchenView() {
     "por-preparar"
   );
 
-  // Filtrar órdenes: por-preparar = pending | cooking; preparadas = cooked, packing, inDelivery, completed
+  // Por preparar: pending/cooking O tiene ítems sin preparar (ej. añadidos después de packing)
+  const hasUnpreparedItems = (o: (typeof orders)[0]) =>
+    o.items?.some((gr) => gr.variants?.some((v) => v.kitchenPrepared === false));
   const filteredOrders = orders.filter((o) =>
     filter === "por-preparar"
-      ? o.orderStatus === "pending" || o.orderStatus === "cooking"
-      : ["cooked", "packing", "inDelivery", "completed"].includes(o.orderStatus)
+      ? o.orderStatus === "pending" || o.orderStatus === "cooking" || hasUnpreparedItems(o)
+      : ["cooked", "packing", "inDelivery", "completed"].includes(o.orderStatus) && !hasUnpreparedItems(o)
   );
 
   const normalOrders = filteredOrders.filter(
@@ -67,7 +69,7 @@ export default function KitchenView() {
           onClick={() => setFilter("por-preparar")}
           className={`px-4 py-1 text-sm rounded-md font-medium ${
             filter === "por-preparar"
-              ? "bg-sky-600 text-white"
+              ? "bg-slate-600 text-white"
               : "bg-gray-200 text-gray-700"
           }`}
         >

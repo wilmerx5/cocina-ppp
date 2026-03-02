@@ -33,13 +33,13 @@ export default function ProtectedLayout() {
   // ⭐ Audios creados solo una vez
   const notify = useRef(
     new Audio(
-      "https://prontopolloportal.com/wp-content/uploads/2025/06/notificacion.mp3"
+      "https://cms.prontopolloportal.com/wp-content/uploads/2025/06/notificacion.mp3"
     )
   );
 
   const deletedOrderSound = useRef(
     new Audio(
-      "https://prontopolloportal.com/wp-content/uploads/2025/06/deleted_join.mp3"
+      "https://cms.prontopolloportal.com/wp-content/uploads/2025/06/deleted_join.mp3"
     )
   );
 
@@ -75,6 +75,8 @@ export default function ProtectedLayout() {
       notify.current.play().catch(() => {});
 
       setOrder(order);
+      // Refrescar lista desde el servidor en breve para mantener store y servidor alineados
+      setTimeout(() => refetchOrders(), 500);
     });
 
     socket.on("updated_order_items", (order: Order) => {
@@ -93,7 +95,7 @@ export default function ProtectedLayout() {
       deletedOrderSound.current.currentTime = 0;
       deletedOrderSound.current.play().catch(() => {});
 
-      toast.error(`Eliminando orden ${order.dailyOrderNumber}`);
+      toast.error(`Orden ${order.dailyOrderNumber} eliminada`);
 
       setTimeout(() => removeOrder(order.dailyOrderNumber), 4000);
     });

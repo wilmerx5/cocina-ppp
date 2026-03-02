@@ -21,7 +21,9 @@ export default function OrderCard({ order, now }: OrderCardProps) {
 
   const isSelected = selectedOrders.includes(order.orderId);
 
-  // Date from backend is already in Bogotá timezone, just parse it
+  // Backend sends dates with Bogotá timezone offset (e.g., "2026-01-21T01:20:21.919-05:00")
+  // normalizeColombianDate parses it correctly, and getTime() returns UTC timestamp
+  // Both now and createdAt are UTC timestamps, so the subtraction works correctly
   const createdAtDate = normalizeColombianDate(order.createdAt);
   const createdAt = createdAtDate?.getTime() ?? null;
   const elapsed = createdAt ? formatElapsed(now - createdAt) : "--";
@@ -39,7 +41,7 @@ export default function OrderCard({ order, now }: OrderCardProps) {
 
   // 🔊 Sonido nueva orden
   const newOrderSound = useRef<HTMLAudioElement | null>(
-    new Audio("https://prontopolloportal.com/wp-content/uploads/2024/02/newPedido_join-1.mp3")
+    new Audio("https://cms.prontopolloportal.com/wp-content/uploads/2024/02/newPedido_join-1.mp3")
   );
   const hasPlayedSound = useRef(false);
 
@@ -108,13 +110,13 @@ export default function OrderCard({ order, now }: OrderCardProps) {
       className={`
         relative bg-white rounded-lg border transition cursor-pointer hover:shadow
         ${isNew ? "animate-newOrder" : ""}
-        ${isSelected ? "ring-4 ring-blue-500 ring-offset-2" : "border-gray-200"}
+        ${isSelected ? "ring-4 ring-slate-500 ring-offset-2" : "border-gray-200"}
       `}
     >
       {/* Loader */}
       {isPending && (
         <div className="absolute inset-0 bg-white/70 backdrop-blur-sm flex justify-center items-center z-20 rounded-lg">
-          <div className="animate-spin w-6 h-6 border-2 border-gray-400 border-t-blue-600 rounded-full" />
+          <div className="animate-spin w-6 h-6 border-2 border-gray-400 border-t-slate-600 rounded-full" />
         </div>
       )}
 
@@ -123,13 +125,13 @@ export default function OrderCard({ order, now }: OrderCardProps) {
         className={`text-sm font-semibold px-2 py-1 rounded-md mb-2 w-full
         ${
           order.orderSource === "online"
-            ? "bg-emerald-500 text-white" // Verde para órdenes de app (cliente)
+            ? "bg-teal-600 text-white" // Teal para órdenes de app (contraste alto)
             : order.orderType === "rappi"
             ? "bg-orange-500 text-white" // Naranja para Rappi
             : order.orderType === "delivery"
-            ? "bg-sky-600 text-white"
+            ? "bg-sky-600 text-white" // Azul solo delivery
             : order.orderType === "table"
-            ? "bg-purple-500 text-white"
+            ? "bg-fuchsia-600 text-white" // Fuchsia para mesas (distinto de azul y de counter/amarillo)
             : order.orderType === "counter"
             ? "bg-yellow-500 text-white"
             : "bg-gray-400 text-white"
@@ -178,20 +180,34 @@ export default function OrderCard({ order, now }: OrderCardProps) {
               ×<span className="text-red-500 text-xl">{item.quantity}</span>
             </div>
 
-            {item.variants?.map((variant, idx) => (
-              <div key={idx} className="ml-2 mt-1 border-l pl-2 text-[15px]">
-                {Object.entries(variant.attributes).map(([k, v]) => (
-                  <p key={k} className="flex gap-1">
-                    <span className="text-gray-500">{k}:</span>
-                    <span className="font-medium">{v}</span>
-                  </p>
-                ))}
+            {item.variants?.map((variant, idx) => {
+              const attrs = variant.attributes ?? {};
+              const hasContent = Object.keys(attrs).length > 0 || variant.note;
+              return (
+                <div
+                  key={idx}
+                  className={`ml-2 mt-1 border-l-4 pl-2 text-[15px] rounded pr-2 min-h-[1.5rem] ${
+                    variant.kitchenPrepared === true
+                      ? "bg-emerald-200 border-emerald-600"
+                      : "border-gray-300"
+                  }`}
+                >
+                  {Object.entries(attrs).map(([k, v]) => (
+                    <p key={k} className="flex gap-1">
+                      <span className="text-gray-500">{k}:</span>
+                      <span className="font-medium">{v}</span>
+                    </p>
+                  ))}
 
-                {variant.note && (
-                  <p className="italic text-gray-600">📝 {variant.note}</p>
-                )}
-              </div>
-            ))}
+                  {variant.note && (
+                    <p className="italic text-gray-600">📝 {variant.note}</p>
+                  )}
+                  {!hasContent && (
+                    <span className="text-gray-400 select-none">—</span>
+                  )}
+                </div>
+              );
+            })}
           </li>
         ))}
       </ul>

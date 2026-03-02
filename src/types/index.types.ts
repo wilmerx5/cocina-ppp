@@ -49,6 +49,8 @@ export interface CreateOrder {
 export interface OrderVariant {
   note?: string | null;
   attributes: Record<string, string>; // ejemplo: { "Sopa": "Pollo" }
+  /** false = pendiente de cocina (ítem nuevo o no marcado como preparado) */
+  kitchenPrepared?: boolean;
 }
 
 export interface OrderItem {

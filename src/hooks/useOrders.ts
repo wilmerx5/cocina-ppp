@@ -3,6 +3,7 @@ import { useEffect } from "react";
 
 import { useOrderStore } from "../stores/orderStore";
 import orderService from "../services/orderService";
+import type { Order } from "../types/index.types";
 
 
 export const useOrders=()=>{
@@ -18,8 +19,17 @@ export const useOrders=()=>{
   
     useEffect(() => {
       if (orders) {
-        setOrders(orders);
-        console.log(orders)
+        const fromServer = orders;
+        const prev = useOrderStore.getState().orders;
+        const serverIds = new Set(fromServer.map((o: Order) => o.orderId));
+        const onlyInStore = prev.filter((o) => !serverIds.has(o.orderId));
+        const toSet =
+          onlyInStore.length === 0
+            ? fromServer
+            : [...fromServer, ...onlyInStore].sort(
+                (a, b) => (b.orderId ?? 0) - (a.orderId ?? 0)
+              );
+        setOrders(toSet);
       }
     }, [orders, setOrders]);
   
