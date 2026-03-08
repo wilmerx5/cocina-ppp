@@ -60,16 +60,11 @@ export default function ProtectedLayout() {
 
     // --- EVENTOS DEL SOCKET ---
     socket.on("connect", () => {
-      console.log("🔌 Socket conectado:", socket.id);
       socket.emit("join_room", "kitchen");
-
-      console.log("🔄 Refetch al conectar/reconectar");
       refetchOrders();
     });
 
     socket.on("created_order", (order: Order) => {
-      console.log("🆕 Orden creada:", order);
-
       toast.success("Nueva orden");
       notify.current.currentTime = 0;
       notify.current.play().catch(() => {});
@@ -80,8 +75,6 @@ export default function ProtectedLayout() {
     });
 
     socket.on("updated_order_items", (order: Order) => {
-      console.log("🛠️ Orden actualizada:", order);
-
       toast.success(`Orden ${order.dailyOrderNumber} actualizada`);
       notify.current.currentTime = 0;
       notify.current.play().catch(() => {});
@@ -89,9 +82,12 @@ export default function ProtectedLayout() {
       updateOrder(order);
     });
 
-    socket.on("deleted_order", (order: Order) => {
-      console.log("🗑️ Orden eliminada:", order);
+    // Mesa completada desde ppp-mesas: actualizar orden para que salga de "Por preparar"
+    socket.on("orderCompleted", (order: Order) => {
+      updateOrder(order);
+    });
 
+    socket.on("deleted_order", (order: Order) => {
       deletedOrderSound.current.currentTime = 0;
       deletedOrderSound.current.play().catch(() => {});
 
@@ -100,13 +96,9 @@ export default function ProtectedLayout() {
       setTimeout(() => removeOrder(order.dailyOrderNumber), 4000);
     });
 
-    socket.on("disconnect", () => {
-      console.warn("⚠️ Socket desconectado — esperando reconexión automática");
-    });
+    socket.on("disconnect", () => {});
 
-    // --- CLEANUP ---
     return () => {
-      console.log("🛑 Cleanup socket");
       socket.removeAllListeners();
       socket.disconnect();
       socketRef.current = null;
@@ -119,14 +111,8 @@ export default function ProtectedLayout() {
   useEffect(() => {
     const handleVisibility = () => {
       if (document.visibilityState === "visible") {
-        console.log("🔄 Tab activa → refetch");
         refetchOrders();
-
-        // Reconectar si el socket cayó
-        if (socketRef.current && !socketRef.current.connected) {
-          console.log("🔁 Reconectando socket...");
-          socketRef.current.connect();
-        }
+        if (socketRef.current && !socketRef.current.connected) socketRef.current.connect();
       }
     };
 

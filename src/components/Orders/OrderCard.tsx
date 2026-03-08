@@ -9,9 +9,11 @@ import "../../index.css";
 interface OrderCardProps {
   order: Order;
   now: number;
+  /** Si false, la card es solo lectura (pestaña Preparadas): no click para completar ni selección múltiple */
+  allowActions?: boolean;
 }
 
-export default function OrderCard({ order, now }: OrderCardProps) {
+export default function OrderCard({ order, now, allowActions = true }: OrderCardProps) {
   const {
     multiSelectMode,
     selectedOrders,
@@ -56,7 +58,7 @@ export default function OrderCard({ order, now }: OrderCardProps) {
   const pressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handlePressStart = () => {
-    if (multiSelectMode) return;
+    if (!allowActions || multiSelectMode) return;
 
     pressTimer.current = setTimeout(() => {
       enterMultiSelect();
@@ -108,7 +110,8 @@ export default function OrderCard({ order, now }: OrderCardProps) {
       onMouseLeave={handlePressEnd}
       onClick={handleClick}
       className={`
-        relative bg-white rounded-lg border transition cursor-pointer hover:shadow
+        relative bg-white rounded-lg border transition
+        ${allowActions ? "cursor-pointer hover:shadow" : "cursor-default"}
         ${isNew ? "animate-newOrder" : ""}
         ${isSelected ? "ring-4 ring-slate-500 ring-offset-2" : "border-gray-200"}
       `}

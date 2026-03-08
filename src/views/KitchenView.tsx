@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import OrderCard from "../components/Orders/OrderCard";
 import { useOrderStore } from "../stores/orderStore";
 import { useUpdateOrderStatus } from "../hooks/useUpdateOrder";
@@ -23,14 +23,20 @@ export default function KitchenView() {
     "por-preparar"
   );
 
-  // Por preparar: pending/cooking O tiene ítems sin preparar (ej. añadidos después de packing)
+  // Por preparar: solo pending/cooking o con ítems sin preparar; nunca completed/canceled.
+  // Preparadas: cooked, packing, inDelivery, completed (completed siempre aquí aunque tenga ítems sin marcar).
   const hasUnpreparedItems = (o: (typeof orders)[0]) =>
     o.items?.some((gr) => gr.variants?.some((v) => v.kitchenPrepared === false));
-  const filteredOrders = orders.filter((o) =>
-    filter === "por-preparar"
-      ? o.orderStatus === "pending" || o.orderStatus === "cooking" || hasUnpreparedItems(o)
-      : ["cooked", "packing", "inDelivery", "completed"].includes(o.orderStatus) && !hasUnpreparedItems(o)
-  );
+  const isCompletedOrCanceled = (o: (typeof orders)[0]) =>
+    o.orderStatus === "completed" || o.orderStatus === "canceled";
+  const filteredOrders = orders.filter((o) => {
+    const status = o.orderStatus ?? "";
+    if (filter === "por-preparar") {
+      if (isCompletedOrCanceled(o)) return false;
+      return status === "pending" || status === "cooking" || hasUnpreparedItems(o);
+    }
+    return ["cooked", "packing", "inDelivery", "completed"].includes(status);
+  });
 
   const normalOrders = filteredOrders.filter(
     (o) => o.orderType !== "table"
@@ -38,6 +44,12 @@ export default function KitchenView() {
   const tableOrders = filteredOrders.filter(
     (o) => o.orderType === "table"
   );
+
+  useEffect(() => {
+    if (filter === "preparadas") {
+      exitMultiSelect();
+    }
+  }, [filter, exitMultiSelect]);
 
   // -----------------------------
   // 🟩 Completar varias órdenes
@@ -87,24 +99,26 @@ export default function KitchenView() {
           Preparadas
         </button>
 
-        {/* 🔘 Botón de selección múltiple */}
-        <button
-          onClick={() => {
-            if (multiSelectMode) {
-              exitMultiSelect(); // cancelar modo
-            } else {
-              enterMultiSelect(); // activar modo
-            }
-            clearSelection();
-          }}
-          className={`ml-auto px-4 py-1 text-sm rounded-md font-medium ${
-            multiSelectMode
-              ? "bg-red-600 text-white"
-              : "bg-amber-500 text-white"
-          }`}
-        >
-          {multiSelectMode ? "Cancelar selección" : "Seleccionar múltiples"}
-        </button>
+        {/* 🔘 Botón de selección múltiple (solo en "Por preparar") */}
+        {filter === "por-preparar" && (
+          <button
+            onClick={() => {
+              if (multiSelectMode) {
+                exitMultiSelect();
+              } else {
+                enterMultiSelect();
+              }
+              clearSelection();
+            }}
+            className={`ml-auto px-4 py-1 text-sm rounded-md font-medium ${
+              multiSelectMode
+                ? "bg-red-600 text-white"
+                : "bg-amber-500 text-white"
+            }`}
+          >
+            {multiSelectMode ? "Cancelar selección" : "Seleccionar múltiples"}
+          </button>
+        )}
       </div>
 
       {/* Grid 5 columnas */}
@@ -137,8 +151,8 @@ export default function KitchenView() {
         </div>
       </div>
 
-      {/* Barra inferior para completar varias órdenes */}
-      {multiSelectMode && selectedOrders.length > 0 && (
+      {/* Barra inferior para completar varias órdenes (solo en "Por preparar") */}
+      {filter === "por-preparar" && multiSelectMode && selectedOrders.length > 0 && (
         <div className="fixed bottom-0 left-0 right-0 bg-white shadow-lg border-t border-gray-200 p-4 flex justify-between items-center">
           <p className="text-gray-700 font-medium">
             {selectedOrders.length} órdenes seleccionadas
