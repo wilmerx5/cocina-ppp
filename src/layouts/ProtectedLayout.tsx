@@ -1,3 +1,5 @@
+import { authService } from "../services/authService";
+import { installStaffSocketSessionRecovery } from "../lib/staffSocketSession";
 import { useEffect, useRef } from "react";
 import { Outlet } from "react-router-dom";
 import { toast, ToastContainer } from "react-toastify";
@@ -57,6 +59,11 @@ export default function ProtectedLayout() {
       reconnectionDelayMax: 5000,
     });
 
+    const stopSessionRecovery = installStaffSocketSessionRecovery(
+      socket,
+      () => authService.refreshToken(),
+      () => window.location.replace(import.meta.env.VITE_AUTH_SERVICE_URL),
+    );
     socketRef.current = socket;
 
     // --- EVENTOS DEL SOCKET ---
@@ -100,6 +107,7 @@ export default function ProtectedLayout() {
     socket.on("disconnect", () => {});
 
     return () => {
+      stopSessionRecovery();
       socket.removeAllListeners();
       socket.disconnect();
       socketRef.current = null;
