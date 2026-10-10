@@ -50,6 +50,7 @@ export default function ProtectedLayout() {
     if (socketRef.current) return; // Evita recrear socket si ya existe
 
     const socket = io(import.meta.env.VITE_API_URL, {
+      withCredentials: true,
       reconnection: true,
       reconnectionAttempts: Infinity,
       reconnectionDelay: 1000,
